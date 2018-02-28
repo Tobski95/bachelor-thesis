@@ -1,0 +1,266 @@
+\documentclass[12pt]{article} %Papierformat
+\usepackage{a4,fullpage,xr,times,url}
+\usepackage{amsmath,amssymb} %math environment
+\usepackage[round]{natbib} %to format and cite bibliographic sources
+\usepackage{float}
+\usepackage[ngerman,english]{babel} %deutsche Silbentrennung
+\usepackage{graphicx} %Grafikpaket laden
+\usepackage{ragged2e} %for left binded caption
+\usepackage[justification=RaggedRight,singlelinecheck=false]{caption}
+\usepackage{wrapfig} %if you want to use text to wrap your figgure
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+	\setlength{\parindent}{0pt} 
+	\selectlanguage{english}
+	\bibliographystyle{apalike}
+	\title{Modeling of DNA methylation dynamics accounting for local dependencies}
+	\author{Tobias Altmiks}
+	\maketitle
+	\tableofcontents 
+
+	\section{Introduction}
+	\subsection{Biological Introduction}
+	\subsubsection{Methylation}
+	Methylation is a common epigenetic modification important for organism development \citep{smith2013}. Nowadays epigenetic describes changes of the regulation of gen expression, which happen during development or cell differentiation. An epigenetic change stays after cell division, without changing the DNA sequence \citep{graw2015}. A group of enzymes, the DNA-Methyltransferases (DNMTs), catalyzes the reaction to methylate the cytosines of the DNA. The DNMTs connect at the 5th position of the pyramidin ring of an Cytosine. The methylated Cytosine is then a so called 5-Methylcytosine. The source of the used methyl group is usually a S-Adenosylmethionin (SAM), which then becomes an S-Adenosylhomocystein (SAH). The 5-Metylcytosine still binds with Guanine \citep{graw2015}. Comparing DNA methylation between different cell types, there are high correlation in cell lineages \citep{bock2012}.
+	\begin{figure}[h]
+		\includegraphics[scale=0.4]{Grafiken/methylierung.jpg}
+		\caption{ This graphic from \cite{graw2015} shows the Methylation process from Cytosine to 5-Methylcytosine using DNA-Methyltransferases (DNMTs).}
+		\label{img:methylation}
+	\end{figure}
+	
+	\subsubsection{CpG cites and islands}
+	A CpG site is a region on the DNA where a Cytosine is directly followed by an Guanine. CpG islands are bigger regions with a high ratio of CpG sites. An island\footnote{Start and end positions of CpG islands in a mouse genome can be downloaded from \url{http://hgdownload.cse.ucsc.edu/goldenPath/mm9/database/cpgIslandExt.txt.gz} (14/02/18, UCSC genome annotation database, NCBI37/mm9).}  is between 500 and 2000 bp long \citep{graw2015}.
+	
+	\subsubsection{Reduced representation bisulfite sequencing}
+	Reduced representation bisulfite sequencing, RRBS, delivers sequences from the genome on a single nucleotide resolution. It uses a sulfite solution to convert unmethyted Cytosines into Thymine, while a methylated Cytosine stays a Cytosine.
+	Usually there are multiple RRBS sequences for each region in the genome. Comparing a Cytosine of the reference genome to the RRBS data, the proportion of methylated versus unmethyted can be determined. This value will be called methylation rate. RRBS returns short sequences and preferentially assays genomic regions with medium to high CpG density \citep{bock2012}. 
+	
+	\subsubsection{Data from Bock et al. (2012)}
+	The data for methylation analysis come from from \cite{bock2012}. All data samples are taken from adult mice. The cell types were split up into stems cells, progenitor cells and terminally differentiated cells, which tells us how far the cell type is developed. Blood stem cells and progenitor cells come from the bone marrow of male mice. The blood terminally differentiated cells are taken from their peripheral blood \citep{bock2012}.\\
+	\begin{figure}[h]
+		\raggedright
+		\includegraphics[scale=0.6]{Grafiken/evolutionary_tree_blood.jpg}
+		\caption{Evolutionary tree from \cite{capra2014}. The stem cell is: \textit{hsc:} Hematopoietic stem cell. The progenitor cells are: \textit{mpp1:} Multipotent progenitor 1 (Flk2-), \textit{mpp2:} Multipotent progenitor 2 (Flk2+), \textit{clp:} Common lymphoid progenitor, \textit{cmp:} Common myeloid progenitor, \textit{mep:} Megakaryocyte-erythroid progenitor, \textit{gmp:} Granulocyte-monocyte progenitor. And the terminally differentiated cells are: \textit{cd4:} T helper cell (CD4+), \textit{cd8:} Cytotoxic T cell (CD8+), \textit{bcell:} B-cell, \textit{ery:} Erythrocyte, \textit{mono:} Monocyte, \textit{gran:} Granulocyte \citep{bock2012}.}
+		\label{img:evolutionary_tree_blood}
+	\end{figure}
+
+	\cite{bock2012} published two different data formats. BAM files show the data after RRBS analyzes. Their most important informations are DNA sequences of length 36, the chromosome name and start position in the genome. BED files focus on CpG sites. Here each row of the data stands for a specific CpG site, including their most important values methylation rate, chromosome name and start position. One data file\footnote{These files are available online at \url{http://www.medical-epigenomics.org/papers/broad_mirror/invivomethylation/index.html} (14/02/18, \cite{bock2012}).} represents one cell type, except that for each cell type two biological replicates were collected.
+	
+	\subsection{Statistical Introduction}
+	\subsubsection{Bayesian inference of phylogenies}
+	Phylogenies are evolutionary trees which bring a structure to look at the relatives of the cell type. A branch in a evolutionary tree is in between two cells and describes the differentiation development of the cells. The length of the branch tells how close they are related. Using statistical methods, like  Bayesian inference and Markov chain Monte Carlo, evolutionary trees can be analyzed.\\
+	
+	Bayesian inference uses additionally to likelihoods, expected densities probabilities (a-priori). 
+	Let $H$ stands for one hypothesis (e.g. an given tree) and $D$ for the data. Then the equation of the conditionally distribution is: 
+	\begin{equation*}
+		P(H|D)=\frac{P(H \cap D)}{P(D)}
+	\end{equation*}
+	Knowing that $P(H \cap D) = P(H)P(D|H)$ we get the Bayes theorem 
+	\begin{equation}
+		P(H|D)=\frac{P(H)P(D|H)}{P(D)}=\frac{P(H)P(D|H)}{\sum_{i=1}^{k}P(D|H_i)P(H_i)}.
+		\label{equ:bayes_theorem}
+	\end{equation}
+	$P(H)$ is called the a-priori probability and represents the probability of getting $H$ before knowing $D$. $P(H|D)$ is called the a-posteriori probability and gives the probability of getting $H$, knowing $D$ \citep{fahrmeir2007}. $P(D|H)$ is the likelihood given by the distributions. $P(D)$ equals the sum of all possible $P(D|H_i)$ multiplied by their a-priori probabilities $P(H_i)$.\\
+	
+	The posteriori-probability is proportional to the likelihood multiplied by the a-priori probability. $f$ stands for such a proportional function
+	\begin{equation*}
+		f := likelihood * a\text{-}priori \propto P(\theta|D) = \frac{P(D|\theta)P(\theta)}{P(D)}.
+	\end{equation*}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	\subsubsection{Markov chain Monte Carlo and Metropolis-Hastings algorithm} 
+	In Bayesian Inference it is a complicated step to compute the denominator of Bayes theorem (\ref{equ:bayes_theorem}). Fortunately, samples from the a-posteriori distribution can be drawn using the idea of Markov chain Monte Carlo (MCMC) without knowing the denominator. Out of these samples it is possible to make a prediction about the real a-posteriori distribution.\\
+	
+	The Metropolis-Hastings algorithm is one of the most used and easiest MCMC methods. The idea of Markov chain Monte Carlo here is, to randomly wander in a space of hypotheses, here phylogenetic trees, aiming to settle down into an equilibrium distribution of trees. This gives a prediction of the desired distribution, in this case the a-posteriori distribution. \\
+	
+	$\theta$ is the parameter we want to estimate. $\theta^{(1)}$ and $\theta^{'(2)}$\footnote{The apostrophe denotes, that the value is only a proposed value} are randomly drawn. Each $\theta$ is a vector of parameters we're estimating. For example $\theta^{(1)}$ looks like this
+	\[\theta^{(1)}=\left(\begin{array}{c}\theta^{(1)}_{1}\\\theta^{(1)}_{2}\\...\\\theta^{(1)}_{n}\end{array} \right).\]
+	Comparing $\theta^{(1)}$ to $\theta^{'(2)}$ only one of the variable $\theta_{i}$ changes. The changing variable is randomly chosen and  $\theta^{(2)}_{i}$ is drawn out of a proposal density $q$.	The proposal densities $q$ is the probability that the hypothesis will be proposed. The choose of the right proposal density is important. It must guarantee, that the acceptance probability is big enough and that the new drawn hypotheses have a low dependency \cite{fahrmeir2009}.\\
+	
+	The Metropolis algorithm includes following steps. $\theta^{(1)}$ is the start value and is the currently accepted tree. The algorithm want to check if $\theta^{'(2)}$ is better than $\theta^{(1)}$. Let $u$ stands for the acceptance probability. It is given by following equation: 
+	\begin{equation}
+	u =	min(1,
+	\frac
+	{P(D|\theta^{(2)})P(\theta^{(2)})} 
+	{P(D|\theta^{(1)})P(\theta^{(1)})}
+	\frac
+	{q(\theta^{(2)}|\theta^{(1)})}
+	{q(\theta^{(1)}|\theta^{(2)})}
+	)
+	\label{frac:acceptance_prop}
+	\end{equation}
+	Using symmetric density functions makes the equation easier, because the second fraction will cancel out. This matchen original Metropolis algorithm is being used \citep{fahrmeir2009}. The new $\theta^{'(2)}$ will be accepted over $\theta^{(1)}$ with the probability $u$. If the $\theta^{'(2)}$ has a higher a-posteriori probability it'll always been accepted. If it's probability is lower $\theta^{'(2)}$ will be accepted with the probability $u$. \\
+	
+	Next a new $\theta^{(3)}$ is taken and the process is been repeated. This algorithm converts against the $\theta$, with the highest probability and returns a a-posteriori distribution. The idea of a Markov chain is also been used, saying that the next change depends only on the current state and not on previous \citep{felsenstein2003}.
+	
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	\subsubsection{Sequence evolution model}
+	Sequence evolution models focus on the change of DNA sequences. The simplest model is the Jukes-Cantor model. It assumes equal frequencies for all nucleotides and that there is no difference of rates of substitution between transition and transversion. The goal is to compute, for each model, the probability of changing from a given state to a given other state in a branch of length t, which are called transition probabilities \citep{felsenstein2003}.
+	
+	\subsection{Analyzes of Capra and Kostka (2014)}
+	\paragraph{What did they do?}
+	\begin{itemize}
+		\item They analyzed the data from Bock et al.
+		\item they introduce an approach to model methylation changes between cell types
+		\item they adapted a model that is typically used in DNA sequence evolution to model the dynamics of methylation changes during tissue differentiation
+		\item replaced the species tree, by an cell lineage tree and the four-state alphabet of the DNA with discretized methylation states
+		\item model estimates CpG methylation dynamics (at single CpG resolution)
+		\item they fit a model with four rate categories to the methylation status
+		\item the estimated parameter branch length reflects the number of expected methylation state transitions between cell types
+		\item they study methylation dynamics by analyzing the rate category that their model assigns to each assayed CpG dinucleotide
+	\end{itemize}
+	
+	\paragraph{What are their results?}
+	\begin{itemize}
+		\item invariant CpG dinucleotides are strongly enriched in CpG islands
+		\item invariant sites are more prevalent (61%)
+		\item invariant sites are most likely to be unmethylated (61%)
+		\item variable sites are most likely to be methylated (57%)
+		\item equilibrium distribution favours methylated sited
+		\item longest branch lengths between MEP and ERY cells (observed methylation changes of 24%) and between HSC and MPP1 cells (17%)
+	\end{itemize}
+	
+	\paragraph{More informations}
+	\begin{itemize}
+		\item CpG sites in CpG islands have a propensity to be unmethylated and a disposition to stay in that state (Jones,2012)
+		\item CpG islands tend to retain their methylated state (Jones, 2012)
+		\item invariant means, that the site does not change it's methylation state during tissue differentiation
+	\end{itemize}
+	
+	
+	\subsection{Goals of this bachelor thesis}
+	In the \cite{capra2014} they don't consider, that CpG islands have an influence on the change of methylation rates. We assume that CpG islands have an influence and that's why we want to create a better model, which allows events, where multiple cites in an island change at the same time.\\
+	
+	In my bachelor thesis I first do exploratory analysis, to show how strongly and where CpG sites and CpG islands are methylated.	Then I want to describe the model of Konrad Grosser and compare the results to the \cite{capra2014}.
+		
+	%---------------------------------------------------------------------------------------------%
+	\section{Methylation simulator}
+	\subsection{Introduction}
+	The model is estimating different parameters. First log values of the branch lengths are determined. Second we want to know what the rate acceleration vectors are. We determine these as the center of gravity of the quantiles of a gamma distribution. The shape parameter of the distribution is an estimated parameter. 
+	Last the position and probability of the local and global events will be estimated, as well as the log values of changing rates.
+	The model uses a modification of a DNA substitution model. Following aspects specify the model. The evolutionary tree is given by the known structure of blood cells (see Fig. \ref{img:evolutionary_tree_blood}). To be able to compare our results to the \cite{capra2014} the methylation rates of each CpG site has been discretized in tree different classes: unmethylated ($<0.1$), partially methylated ($0.1-0.8$) and methylated ($>0.8$).\\
+	The cell sequences evolve along the tree based on a DNA substitution model. We use the Felsenstein 81 model idea in a adjusted version. Instead of the four nucleotides, we have now changes of the four states unmethylated (U), partially methylated (P) and methylated (M).\\
+	
+	In our model we differ two type of events, local an global events. In a local event we just look at changes from single CpG sites. The changing rates of local events stay the same, until an global event happens. At a global event multiple sites of one island change at the same time. We assume that the islands evolve independently.
+	For calculating the local changing rates we use the rate matrix of the Felsenstein 81 sequence evolution model is given by
+	\begin{equation*}
+	\begin{pmatrix}
+	-\alpha+\alpha \pi_A & \alpha \pi_C & \alpha \pi_G & \alpha \pi_T\\
+	\alpha \pi_A & -\alpha + \alpha \pi_C & \alpha \pi_G & \alpha \pi_T\\
+	\alpha \pi_A & \alpha \pi_C & -\alpha + \alpha \pi_G & \alpha \pi_T\\
+	\alpha \pi_A & \alpha \pi_C & \alpha \pi_G & -\alpha + \alpha \pi_T
+	\end{pmatrix}
+	\end{equation*}
+	(Metzler, 201X). $\alpha$ stands for the rate parameter, while $\pi$ is the frequency of the nucleotide. If we uses this matrix to adapt it to our model of switching between the methyation states (U, P, M) we get the following matrix: 
+	\begin{equation}
+	\begin{pmatrix}
+	-\alpha+\alpha \pi_U & \alpha \pi_P & \alpha \pi_M\\
+	\alpha \pi_U & -\alpha + \alpha \pi_P & \alpha \pi_M\\
+	\alpha \pi_U & \alpha \pi_P & -\alpha + \alpha \pi_M
+	\end{pmatrix}
+	\end{equation}
+	In an global event rates are drawn from a Dirichlet (1,1,1) distribution.
+	
+	\subsection{Estimating parameters} 
+	Our target is to get the variable $\theta$ (a vector), which includes all parameter we want: (i) $log(\alpha)$ (ii)  $log(l_1),...,log(l_{12})$ and (iii) $log(pcrates)$.\\
+	
+	The variables in (i)-(iii) stand for:\\
+	(i) $\alpha$ is the shape parameter of the gamma distribution. Knowing $\alpha$ it's possible to compute $s_1, s_2 ,s_3$, which are the gravities of the quantiles.$s_{1,...,3}$ are three different rates, how fast a site can evolve. $s_1' = \frac{3 s_1}{s_1+s_2+s_3}$ and mean ??.\\
+	(ii) $(l_1),...,(l_{12})$ are the branch length between the cells. The length increases by the increase of the number of methylation changes happening during the cell differentiation.\\
+	(iii)$pcrates$ gives the percentage of how many of the local events are global events.
+	
+	\subsection{Used Priors}
+	
+	\subsection{Metropolis-Hastings specifications in methylation simulator}
+	In this case for the proposal density
+	%Comparing $\theta^{(1)}$ to $\theta^{'(2)}$ only one of the variable $\theta_{i}$ changes. The changing variable is randomly chosen and  $\theta^{(2)}_{i}$ is drawn out of a proposal density $q$. \\
+	%$\mathcal{N}(\theta^{(1)}_{i},1)$
+	
+	It is given by $q(\theta_i^{(2)}|\theta_i^{(1)}) = \frac{1}{\sqrt{2\pi}} * exp(\frac{-(\theta_i^{(2)}-\theta_i^{(1)})^2}{2})$. $\theta^{(1)}_{i}$ is drawn out of a $\mathcal{N}(\theta^{(2)}_{i},1)$. That gives $q(\theta_i^{(1)}|\theta_i^{(2)}) = \frac{1}{\sqrt{2\pi}} * exp(\frac{-(\theta_i^{(1)}-\theta_i^{(2)})^2}{2})$. Comparing the to distributions we can see, that they're equal. That's why they cancel out in fraction \ref{frac:acceptance_prop}
+	
+	
+	\subsection{Calculation of the likelihoods}
+	Here I want to describe how to calculate the likelihood $P(D|\theta)$ from faction \ref{frac:acceptance_prop}.
+	The likelihood is the product of probabilities for each CpG site to convert from one given state to the other given state ($P(D|\theta) = \prod_{c\epsilon sites}P(D_c|\theta)$). \\
+	The probabilities for each CpG site to convert from one given state to the other can be calculated as followed. Each transition process is effected by local and global events. A local event happens with the transition matrix from the F81 approach. A global event happens with a rate matrix from the $pcrates$ variable. In our case both matrices are 3x3 matrices. Multiplying them and inserting the beginning and end states gives us the wanted likelihood of the cite.
+	
+
+	\subsection{Rate matrices of global events}
+	There are three conversion rate $q_1, q_2, q_3$, which are drawn from a Dirichlet(1,1,1) distribution. A attribute of that distribution is, that the three rates sum up to 1. $q_1$ stands for the rate that the given state changes to $u$ (unmethylated). If the state is already $u$, it gives the rate, that it stays in the state. $q_2$ gives the rate to convert to $p$ and $q_3$ to convert to $m$.
+	In a global event $q_1, q_2, q_3$ changes to new $q_1', q_2', q_3'$. The new rates are also drawn from a Dirichlet(1,1,1) distribution. Each rate can either increase, decrease or stay. Therefore different cases need to be differentiated.
+	Let's have an example and look at the case, that $q_1' < q_1$, $q_2' > q_2$, $q_3' < q_3$. Calculating the conversion rate matrix for this case gives
+	\begin{equation*}
+	\begin{pmatrix}
+	\frac{q_1'}{q_1} & \frac{q_1-q_1'}{q_1} & 0\\
+	0 & 1 & 0\\
+	0 & \frac{q_3-q_3'}{q_3} & \frac{q_3'}{q_3}
+	\end{pmatrix}
+	\end{equation*}
+	
+	
+	%---------------------------------------------------------------------------------------------%
+	\section{Results}
+	\subsection{Exploratory analysis}
+	Each cell type in the data has information about approximately 1.6 million CpG-sites. These CpG-sites are partitioned into CpG island. In figure \ref{img:island_1} methylation rates of the first island are being compared. For the plots two representative of each of the three cell development states were chosen.\\
+	
+	\begin{figure}[h]
+		\includegraphics[scale=0.5]{Grafiken/island_1.pdf}
+		\caption{Methylation rates of the first CpG Island for six selected cell types. }
+	\label{img:island_1}
+	\end{figure}
+	
+	We can see that there are quiet different methylation rates in the cell types. In the region from $3'521'730 - 3'521'760$ all cells have a pretty high methylation rate. Whereas Mono\_{}1 is the only cell which has methylation informations given after position $3'521'865$. It's also mentionable, that HSC1 and HSC2 have similar courses.\\
+	Figure \ref{img:island_1-40} shows the mean value over the islands. Here the x-axes shows the first 40 islands.	
+	
+	\begin{figure}[h]
+		\includegraphics[scale=0.5]{Grafiken/island_1-40.pdf}
+		\caption{Mean methylation rates for the first 40 CpG islands. Six cell types were selected.}
+		\label{img:island_1-40}
+	\end{figure}
+
+	\subsection{Estimated parameters}
+
+	%---------------------------------------------------------------------------------------------%
+	\section{Discussion}
+	\subsection{Comparison to Capra and Kostka (2014)}
+	\subsection{Improvements of the methylation simulator}
+	%\listoffigures
+	\bibliography{literature}
+	
+\end{document}
+
